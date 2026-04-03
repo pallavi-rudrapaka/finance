@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Finance DashBoard</title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <style>
+            body{
+                font-family:Arial;
+                margin:0;
+                transition:0.3s;
+            }
+            .light{background:#c4c5c2;color: black;}
+            .dark{background:#121212;color:white;}
+            header{
+                display:flex;
+                justify-content:space-between;
+                padding:15px;
+                background:#76840b;
+                color:white;
+            }
+            .controls{
+                display:flex;
+                gap:10px;
+            }
+            section{padding:20px;}
+            .cards{
+                display:grid;
+                grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+                gap:15px;
+            }
+            .card{
+                padding:20px;
+                border-radius:12px;
+                background:white;
+                box-shadow:0 4px 10px rgba(0,0,0,0.1);
+            }
+            .dark .card{ background:#1e1e1e;}
+            table{
+                width:100%;
+                border-collapse:collapse;
+                margin-top:10px;
+                background:white;
+            }
+            .dark table{background:#1e1e1e;}
+            th,td{
+                padding:10px;
+                border-bottom:1px solid #ddd;
+                text-align:center;
+            }
+            button{
+                padding:6px 10px;
+                cursor:pointer;
+                border:none;
+                border-radius:5px;
+            }
+            .add{background:#28a745;color:white;}
+            .edit{background:#ffc107;}
+            .delete{background:#dc3545;color:white;}
+            input,select{
+                padding:6px;
+            }
+            canvas{
+                width:100% !important;
+                max-width:700px;
+                height:300px !important;
+                margin:20px auto;
+                display:block;
+            }
+        </style>
+    </head>
+    <body class="light">
+        <header>
+            <h2>Finance Dashboard</h2>
+            <div class="controls">
+                <select id="roleSwitch">
+                    <option value="viewer">Viewer</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <button onclick="toggleTheme()">Theme❤️</button>
+            </div>
+        </header>
+        <section>
+            <div class="cards">
+                <div class="card" id="balance"></div>
+                <div class="card" id="income"></div>
+                <div class="card" id="expense"></div>
+            </div>
+            <canvas id="balanceChart"></canvas>
+            <canvas id="categoryChart"></canvas>
+        </section>
+        <section>
+            <h3>Transactions</h3>
+            <input type="text" id="search" placeholder="Search">
+            <select id="filterType">
+                <option value="all">All</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+            </select>
+            <button class="add" id="addBtn">+Add</button>
+            <table>
+                <thead>
+                    <tr>
+                        <th>date</th>
+                        <th>Amount</th>
+                        <th>Category</th>
+                        <th>Type</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="transactionList"></tbody>
+            </table>
+        </section>
+        <section>
+            <h3>insights</h3>
+            <div id="insights"></div>
+        </section>
+        <script>
+            let balanceChart,categoryChart;
+            let transactions=JSON.parse(localStorage.getItem("transactions")) || [
+                {id:1,date:"2026-04-01",amount:500,category:"Food",type:"expense"},
+                {id:2,date:"2026-04-02",amount:2000,category:"Salary",type:"income"}
+            ];
+            let role="viewer";
+            document.getElementById("roleSwitch").onchange=e=>{
+                role=e.target.value;
+                updateUI();
+            };
+            document.getElementById("search").oninput=filterTransactions;
+            document.getElementById("filterType").onchange=filterTransactions;
+            function saveData(){
+                localStorage.setItem("transactions",JSON.stringify(transactions));
+            }
+            document.getElementById("addBtn").onclick=()=>{
+                if(role!=="admin") return;
+                let amount=prompt("Amount:");
+                let category=prompt("Category:");
+                let type=prompt("income/expense:");
+                if(!amount||!category||!type) return;
+                transactions.push({
+                    id:Date.now(),
+                    date:new Date().toISOString().split("T")[0],
+                    amount:Number(amount),
+                    category,
+                    type
+                });
+                saveData();
+                renderAll();
+            };
+                function editTransaction(id){
+                    if(role!=="admin") return;
+                    let t=transactions.find(x=>x.id===id);
+                    let amount=prompt("Edit Amount:",t.amount);
+                    let category=prompt("Edit Category:",t.category);
+                    t.amount=Number(amount);
+                    t.category=category;
+                    saveData();
+                    renderAll();
+                }
+                function deleteTransaction(id){
+                    if(role!=="admin") return;
+                    transactions=transactions.filter(t=>t.id!==id);
+                    saveData();
+                    renderAll();
+                }
+                function calculateSummary(){
+                    let income=0,expense=0;
+                    transactions.forEach(t=>{
+                        t.type=="income"?income+=t.amount:expense+=t.amount;
+                    });
+                    document.getElementById("income").innerText="Income:$"+income;
+                    document.getElementById("expense").innerText="Expense:$"+expense;
+                    document.getElementById("balance").innerText="Balance:$"+(income-expense);
+                }
+                function renderTransactions(data){
+                    let list=document.getElementById("transactionList");
+                    list.innerHTML="";
+
+                    if(data.length===0){
+                        list.innerHTML="<tr><td colspan='5'>No Data</td></tr>";
+                        return;
+                    }
+                    let html="";
+                    data.forEach(t=>{
+                        html+=`
+                        <tr>
+                            <td>${t.date}</td>
+                            <td>${t.amount}</td>
+                            <td>${t.category}</td>
+                            <td>${t.type}</td>
+                            <td>
+                                ${role==="admin"?`
+                                <button class="edit" onclick="editTransaction(${t.id})">Edit</button>
+                                <button class="delete" onclick="deleteTransaction(${t.id})">Delete</button>
+                                `:""}
+                            </td>
+                        </tr>
+                        `;
+                    });
+                    list.innerHTML=html;
+                }
+                function filterTransactions(){
+                    let search=document.getElementById("search").value.toLowerCase();
+                    let type=document.getElementById("filterType").value;
+                    let filtered=transactions.filter(t=>(type==="all"||t.type===type)&&t.category.toLowerCase().includes(search)
+                );
+                renderTransactions(filtered);
+                }
+                function updateUI(){
+                    document.getElementById("addBtn").style.display=
+                    role==="admin"?"inline-block":"none";
+                }
+                function generateCharts(){
+                    let isDark=document.body.classList.contains("dark");
+                    let textColor= isDark?"white":"black";
+                    let lineColor=isDark?"white":"black";
+                    let labels=transactions.map(t=>t.date);
+                    let balance=0;
+                    let trend=transactions.map(t=>{
+                        balance+=t.type=="income"?t.amount:-t.amount;
+                        return balance;
+                    });
+                    if(balanceChart) balanceChart.destroy();
+                    balanceChart=new Chart(document.getElementById("balanceChart"),{
+                        type:"line",
+                        data:{labels:labels,datasets:[{label:"Balance",data:trend,borderColor:lineColor,
+                            backgroundColor:lineColor,fill:false,tension:0.3
+                        }]
+                    },
+                    options:{
+                        plugins:{legend:{labels:{color:textColor}}},
+                        scales:{
+                            x:{ticks:{color:textColor}},
+                            y:{ticks:{color:textColor}}
+                        }
+                    }
+                    });
+                    let map={};
+                    transactions.forEach(t=>{
+                        if(t.type==="expense"){
+                            map[t.category]=(map[t.category]||0)+t.amount;
+                        }
+                    });
+                    if(categoryChart) categoryChart.destroy();
+                    categoryChart=new Chart(document.getElementById("categoryChart"),{
+                        type:"pie",
+                        data:{labels:Object.keys(map),datasets:[{data:Object.values(map)}]
+                    },
+                    options:{
+                        plugins:{legend:{position:"right",labels:{
+                            color:textColor,
+                            padding:20,
+                            boxWidth:18,
+                        font:{
+                            size:20,
+                            weight:"bold"
+                        }}}}
+                    }
+                    });
+                }
+                function generateInsights(){
+                    let map={};
+                    transactions.forEach(t=>{
+                        if(t.type==="expense"){
+                            map[t.category]=(map[t.category]||0)+t.amount;
+                        }
+                    });
+                    let insightText="No data";
+                    let keys=Object.keys(map);
+                    if(keys.length>0){
+                        let highest=keys.reduce((a,b)=>map[a]>map[b]?a:b);
+                        insightText="Highest spending: "+highest;
+                    }
+                    document.getElementById("insights").innerText=insightText;
+                }
+                function toggleTheme(){
+                    document.body.classList.toggle("dark");
+                    document.body.classList.toggle("light");
+                    renderAll();
+                }
+                function renderAll(){
+                    calculateSummary();
+                    renderTransactions(transactions);
+                    generateCharts();
+                    generateInsights();
+                    updateUI();
+                }
+                renderAll();
+        </script>
+    </body>
+</html>
