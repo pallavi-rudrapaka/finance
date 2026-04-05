@@ -168,9 +168,9 @@
                     transactions.forEach(t=>{
                         t.type=="income"?income+=t.amount:expense+=t.amount;
                     });
-                    document.getElementById("income").innerText="Income:$"+income;
-                    document.getElementById("expense").innerText="Expense:$"+expense;
-                    document.getElementById("balance").innerText="Balance:$"+(income-expense);
+                    document.getElementById("income").innerText="Income: ₹"+income;
+                    document.getElementById("expense").innerText="Expense: ₹"+expense;
+                    document.getElementById("balance").innerText="Balance: ₹"+(income-expense);
                 }
                 function renderTransactions(data){
                     let list=document.getElementById("transactionList");
